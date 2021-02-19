@@ -1,81 +1,68 @@
-class PromisePolling{
+export default class PromisePoller {
 
-	constructor(onPoll, delay, timeout){
-  	this.onPoll = onPoll
+  constructor(onPoll, delay, timeout) {
+    this.onPoll = onPoll
     this.delay = delay
     this.timeout = timeout
     this.timer = null
     this.timeoutTimer = null
     this.initPromise()
   }
-  
-  initPromise(){
-    this.promise = new Promise((resolve, reject) =>{
-        this.reject = reject
-        this.resolve = resolve
+
+  initPromise() {
+    this.promise = new Promise((resolve, reject) => {
+      this.reject = reject
+      this.resolve = resolve
     })
-    .then(result => {
-        console.log('Success! propegating result')
+      .then(result => {
         this.reset()
         if(result) return result
-    })
-    .catch(error => {
-        console.log('Failure! popegating error')
+      })
+      .catch(error => {
         this.reset()
         if(error) throw error
         throw undefined
-    })
+      })
   }
 
-  reset(){
+  reset() {
     this.clearTimeout()
-    this.clearInterval()
+    this.clearTimer()
   }
-  
-  clearTimeout(){
-    console.log("Clearing timeout!")
-    if (this.timeoutTimer){
-        clearTimeout(this.timeoutTimer)
-        this.timeoutTimer = null
+
+  clearTimeout() {
+    if (this.timeoutTimer) {
+      clearTimeout(this.timeoutTimer)
+      this.timeoutTimer = null
     }
   }
 
-  clearInterval(){
-    console.log("Clearing interval!")
-    if (this.timer){
-        clearInterval(this.timer)
-        this.timer = null
+  clearTimer() {
+    if (this.timer) {
+      clearTimeout(this.timer)
+      this.timer = null
     }
   }
-  
-  run(){
-  	this.timer = setInterval(() => {
-    	this.onPoll(this.resolve, this.reject)
-    }, this.delay)
+
+  run() {
+    this.reset()
+    const runner = () => {
+      const resume = () => {
+        this.timer = setTimeout(runner, this.delay)
+      }
+      this.onPoll(resume, this.resolve, this.reject)
+    }
     this.initTimeout()
-  	return this.promise
+    this.timer = setTimeout(runner, 0)
+    return this.promise
   }
-  
-  initTimeout(){
-      if(this.timeout > 0){
-        console.log('setting timeout')
-  	    this.timeoutTimer = setTimeout(() => {
-                console.log('timeout!')
-                clearInterval(this.timer)
-                this.reject(new Error("Timeout"))
-        }, this.timeout);
+
+  initTimeout() {
+    if(this.timeout > 0) {
+      this.timeoutTimer = setTimeout(() => {
+        if(this.timer) this.clearTimer()
+        this.reject(new Error("Timeout"))
+      }, this.timeout)
     }
   }
-
 }
-
-poller = new PromisePolling((resolve, reject) => {
-    console.log("Executing task")
-    //reject(new Error("Something went wrong, here is the error"))
-    //resolve("Everything went well we can stop polling")
-    reject('test')
-}, 500, 1000)
-
-promise = poller.run()
-promise.then(console.info).catch(console.error)
-Promise.reject('test').then(console.info, e => console.log(e))
